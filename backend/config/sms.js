@@ -1,35 +1,56 @@
-// config/sms.js
-// Twilio SMS sender — replace toaster OTP with real SMS
 
-const twilio = require('twilio');
-
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
-
-/**
- * Send OTP via SMS using Twilio
- * @param {string} phone - 10 digit Indian phone number
- * @param {string} otp   - 6 digit OTP code
  */
 const sendOtpSms = async (phone, otp) => {
-  // Format to E.164 for India (+91XXXXXXXXXX)
-  const formattedPhone = `+91${phone}`;
+  const isDev = process.env.NODE_ENV !== 'production';
+  const apiKey = process.env.FAST2SMS_API_KEY;
 
-  const message = `Your CleanPress OTP is: ${otp}. Valid for 10 minutes. Do not share with anyone. -CleanPress`;
+  // ── No API key configured ────────────────────────────
+  if (!apiKey || apiKey === 'YOUR_FAST2SMS_API_KEY_HERE') {
+    if (isDev) {
+      // Development fallback: just log OTP to console — no SMS needed
+      console.log('\n');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📱  DEV MODE — OTP for +91${phone}: ${otp}`);
+      console.log('   (Set FAST2SMS_API_KEY in .env for real SMS)');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('\n');
+      return { success: true, dev: true };
+    } else {
+      throw new Error('SMS_NOT_CONFIGURED: FAST2SMS_API_KEY missing in production .env');
+    }
+  }
+
+  // ── Send real SMS via Fast2SMS OTP route ─────────────
+  // API docs: https://docs.fast2sms.com
+  // This route sends: "Your OTP is XXXXXX"
+  // No sender ID / DLT template needed on this route.
+  const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${apiKey}&variables_values=${otp}&route=otp&numbers=${phone}`;
 
   try {
-    const result = await client.messages.create({
-      body: message,
-      from: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number e.g. +1XXXXXXXXXX
-      to: formattedPhone,
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'cache-control': 'no-cache',
+      },
     });
 
-    console.log(`✅ SMS sent to ${formattedPhone} | SID: ${result.sid}`);
-    return { success: true, sid: result.sid };
+    const data = await response.json();
+
+    // Fast2SMS returns { return: true, request_id: '...', message: [...] } on success
+    if (!data.return) {
+      const reason = Array.isArray(data.message) ? data.message.join(', ') : data.message;
+      throw new Error(`Fast2SMS error: ${reason}`);
+    }
+
+    console.log(`✅ OTP SMS sent to +91${phone} | Request ID: ${data.request_id}`);
+    return { success: true, requestId: data.request_id };
+
   } catch (error) {
-    console.error(`❌ SMS failed to ${formattedPhone}:`, error.message);
+    // fetch() network error (not Fast2SMS API error)
+    if (error.name === 'TypeError') {
+      throw new Error('SMS delivery failed: Could not reach Fast2SMS. Check internet connection.');
+    }
+    // Re-throw Fast2SMS API errors as-is
     throw new Error(`SMS delivery failed: ${error.message}`);
   }
 };
