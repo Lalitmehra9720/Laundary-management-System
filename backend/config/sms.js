@@ -1,5 +1,5 @@
 
- */
+ 
 const sendOtpSms = async (phone, otp) => {
   const isDev = process.env.NODE_ENV !== 'production';
   const apiKey = process.env.FAST2SMS_API_KEY;

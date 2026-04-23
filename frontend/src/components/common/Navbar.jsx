@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 
 const Navbar = () => {
   const { pathname } = useLocation();
+  console.log('Current path:', pathname);  // Debug: log current path
   const { user, logout, isCustomer, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -93,7 +94,7 @@ const Navbar = () => {
                 key={to}
                 to={to}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  pathname === to || (to !== '/' && pathname.startsWith(to + '/'))
+                  pathname === to 
                     ? activeLinkClass
                     : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
                 }`}
