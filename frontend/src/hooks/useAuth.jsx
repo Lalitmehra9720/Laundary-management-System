@@ -37,8 +37,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // ── Customer OTP: send ─────────────────────────────
-  const sendOtp = useCallback(async (phone, name) => {
-    const res = await authAPI.sendOtp({ phone, name });
+  const sendOtp = useCallback(async (phone, name, email) => {
+    const res = await authAPI.sendOtp({ phone, name, email });
     return res.data;
   }, []);
 

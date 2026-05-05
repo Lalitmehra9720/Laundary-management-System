@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import AdminSetupPage from "./pages/AdminSetupPage";
 import CustomerLoginPage from "./pages/CustomerLoginPage";
+import StaffApplicationPage from "./pages/StaffApplicationPage";
 import DashboardPage from "./pages/DashboardPage";
 import StaffDashboardPage from "./pages/StaffDashboardPage";
 import StaffManagementPage from "./pages/StaffManagementPage";
@@ -63,6 +64,7 @@ const App = () => (
   <Routes>
     {/* Public */}
     <Route path="/" element={<HomePage />} />
+    <Route path="/join-staff" element={<StaffApplicationPage />} />
     <Route
       path="/login"
       element={

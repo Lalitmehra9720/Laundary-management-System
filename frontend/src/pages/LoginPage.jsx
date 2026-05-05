@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Phone } from 'lucide-react';
+import { Briefcase, Mail, Lock, ArrowRight, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input';
@@ -102,6 +102,14 @@ const LoginPage = () => {
           >
             <Phone size={15} />
             Track My Order (Customer Login)
+          </Link>
+
+          <Link
+            to="/join-staff"
+            className="mt-3 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-gold-400/25 text-gold-400 hover:bg-gold-400/8 transition-all text-sm font-medium"
+          >
+            <Briefcase size={15} />
+            Request Staff Vacancy Access
           </Link>
         </div>
 

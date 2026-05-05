@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 
 const Navbar = () => {
   const { pathname } = useLocation();
-  console.log('Current path:', pathname);  // Debug: log current path
+  
   const { user, logout, isCustomer, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
