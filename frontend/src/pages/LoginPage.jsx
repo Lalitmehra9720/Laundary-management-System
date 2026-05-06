@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Briefcase, Mail, Lock, ArrowRight, Phone } from 'lucide-react';
@@ -44,7 +43,6 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md animate-fade-up" style={{ animationFillMode: 'forwards' }}>
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center shadow-xl mx-auto mb-4">
             <span className="text-charcoal-900 font-display font-black text-2xl">C</span>
@@ -60,7 +58,7 @@ const LoginPage = () => {
             <Input
               label="Email Address"
               type="email"
-              placeholder="you@cleanpress.com"
+              placeholder="staff1@gmail.com"
               icon={Mail}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -88,14 +86,12 @@ const LoginPage = () => {
             </Button>
           </form>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 my-5">
             <div className="flex-1 h-px bg-white/5" />
             <span className="text-gray-700 text-xs">not staff?</span>
             <div className="flex-1 h-px bg-white/5" />
           </div>
 
-          {/* Customer login */}
           <Link
             to="/customer-login"
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-emerald-400/25 text-emerald-400 hover:bg-emerald-400/8 transition-all text-sm font-medium"
@@ -112,14 +108,6 @@ const LoginPage = () => {
             Request Staff Vacancy Access
           </Link>
         </div>
-
-        {/* Admin setup hint */}
-        <p className="text-center text-xs text-gray-700 mt-4">
-          First time setting up?{' '}
-          <Link to="/admin-setup" className="text-gold-400/60 hover:text-gold-400 transition-colors">
-            Admin Setup →
-          </Link>
-        </p>
       </div>
     </div>
   );

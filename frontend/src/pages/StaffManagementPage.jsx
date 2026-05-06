@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   UserPlus, Trash2, Power, Mail, Lock, User,
   CheckCircle, XCircle, Shield, Info, Eye, EyeOff,
+  Briefcase, Phone, ClipboardList, UserCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authAPI } from '../utils/api';
@@ -25,7 +27,9 @@ const CreateStaffModal = ({ isOpen, onClose }) => {
   const validate = () => {
     const errs = {};
     if (!form.name.trim()) errs.name = 'Name is required';
-    if (!form.email.includes('@')) errs.email = 'Valid email required';
+    if (!/^[^\s@]+@cleanpress\.com$/i.test(form.email.trim())) {
+      errs.email = 'Use a CleanPress email like example@cleanpress.com';
+    }
     if (form.password.length < 6) errs.password = 'Min 6 characters';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -137,7 +141,7 @@ const CreateStaffModal = ({ isOpen, onClose }) => {
           <Input
             label="Email Address"
             type="email"
-            placeholder="ravi@yourstore.com"
+            placeholder="ravi@cleanpress.com"
             icon={Mail}
             value={form.email}
             onChange={(e) => { setForm({ ...form, email: e.target.value }); setErrors({ ...errors, email: '' }); }}
@@ -197,6 +201,11 @@ const StaffManagementPage = () => {
     queryFn: () => authAPI.getStaff().then((r) => r.data.data.staff),
   });
 
+  const { data: applicationsData, isLoading: applicationsLoading } = useQuery({
+    queryKey: ['staff-applications'],
+    queryFn: () => authAPI.getStaffApplications().then((r) => r.data.data.applications),
+  });
+
   const toggleMutation = useMutation({
     mutationFn: (id) => authAPI.toggleStaff(id),
     onSuccess: (res) => {
@@ -215,6 +224,25 @@ const StaffManagementPage = () => {
     onError: () => toast.error('Failed to delete staff'),
   });
 
+  const approveMutation = useMutation({
+    mutationFn: (id) => authAPI.approveStaffApplication(id),
+    onSuccess: (res) => {
+      toast.success(res.data.message);
+      queryClient.invalidateQueries({ queryKey: ['staff-applications'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to approve request'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id) => authAPI.rejectStaffApplication(id),
+    onSuccess: (res) => {
+      toast.success(res.data.message);
+      queryClient.invalidateQueries({ queryKey: ['staff-applications'] });
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to reject request'),
+  });
+
   const handleDelete = (staff) => {
     if (window.confirm(`Remove ${staff.name}'s account permanently? They will lose all access.`)) {
       deleteMutation.mutate(staff._id);
@@ -222,6 +250,8 @@ const StaffManagementPage = () => {
   };
 
   const staffList = data || [];
+  const applications = applicationsData || [];
+  const pendingApplications = applications.filter((request) => request.status === 'pending');
   const activeCount = staffList.filter((s) => s.isActive).length;
 
   return (
@@ -231,26 +261,30 @@ const StaffManagementPage = () => {
         <div>
           <h1 className="font-display font-bold text-3xl text-cream-100">Staff Management</h1>
           <p className="text-gray-500 text-sm mt-1">
-            Create and manage staff accounts. Only you (admin) can do this.
+            Review staff vacancy requests, approve eligible joiners, and manage active accounts.
           </p>
         </div>
-        <Button variant="primary" icon={UserPlus} onClick={() => setModalOpen(true)}>
-          Add Staff
-        </Button>
+        <Link
+          to="/join-staff"
+          className="inline-flex items-center justify-center gap-2 font-body font-medium btn-primary text-charcoal-900 px-5 py-2.5 text-sm rounded-xl"
+        >
+          <ClipboardList size={16} />
+          Request Form
+        </Link>
       </div>
 
       {/* How it works — guide box */}
       <div className="mb-6 glass-card p-5 border border-blue-400/20 bg-blue-400/5">
         <h3 className="font-semibold text-cream-100 mb-4 flex items-center gap-2 text-sm">
           <Info size={15} className="text-blue-400" />
-          How Staff Registration Works
+          How Staff Hiring Works
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           {[
-            { step: '01', text: 'Click "Add Staff" button above' },
-            { step: '02', text: 'Fill their name, email and set a password' },
-            { step: '03', text: 'Copy the credentials shown after creation' },
-            { step: '04', text: 'Staff goes to /login and uses email + password' },
+            { step: '01', text: 'New joiner opens the request form' },
+            { step: '02', text: 'They apply with their Gmail address' },
+            { step: '03', text: 'Admin approves only eligible requests' },
+            { step: '04', text: 'Generated login email and password are emailed automatically' },
           ].map((s) => (
             <div key={s.step} className="flex items-start gap-2.5">
               <span className="text-gold-400 font-mono text-xs font-bold mt-0.5 flex-shrink-0">{s.step}</span>
@@ -265,7 +299,7 @@ const StaffManagementPage = () => {
         {[
           { label: 'Total Staff', value: staffList.length, color: 'text-cream-100' },
           { label: 'Active', value: activeCount, color: 'text-emerald-400' },
-          { label: 'Inactive', value: staffList.length - activeCount, color: 'text-gray-500' },
+          { label: 'Pending Requests', value: pendingApplications.length, color: 'text-gold-400' },
         ].map((s) => (
           <div key={s.label} className="glass-card p-4 text-center border border-white/5">
             <p className={`font-display font-bold text-2xl ${s.color}`}>{s.value}</p>
@@ -273,6 +307,88 @@ const StaffManagementPage = () => {
           </div>
         ))}
       </div>
+
+      <Card className="mb-6">
+        <CardHeader
+          title="Vacancy Requests"
+          subtitle={`${pendingApplications.length} pending review${pendingApplications.length !== 1 ? 's' : ''}`}
+          action={
+            <Button variant="secondary" size="sm" icon={UserPlus} onClick={() => setModalOpen(true)}>
+              Manual Add
+            </Button>
+          }
+        />
+
+        {applicationsLoading ? (
+          <div className="text-center py-10 text-gray-600 text-sm">Loading requests...</div>
+        ) : pendingApplications.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
+              <ClipboardList size={24} className="text-gray-600" />
+            </div>
+            <p className="font-display text-gray-500 text-lg">No pending requests</p>
+            <p className="text-gray-700 text-sm mt-1">New joiner applications will appear here for eligibility review.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {pendingApplications.map((request) => (
+              <div key={request._id} className="border border-white/8 rounded-xl p-4 bg-white/[0.02]">
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-gold-400/12 border border-gold-400/25 flex items-center justify-center">
+                        <span className="text-gold-400 text-sm font-bold">{request.name[0].toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-cream-100">{request.name}</p>
+                        <p className="text-xs text-gray-600 font-mono">
+                          Applied {format(new Date(request.createdAt), 'dd MMM yyyy')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 text-xs">
+                      <span className="inline-flex items-center gap-2 text-gray-400 bg-white/5 rounded-lg px-3 py-2">
+                        <Mail size={13} className="text-gold-400" /> {request.email}
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-gray-400 bg-white/5 rounded-lg px-3 py-2">
+                        <Phone size={13} className="text-blue-400" /> {request.phone}
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-gray-400 bg-white/5 rounded-lg px-3 py-2">
+                        <Briefcase size={13} className="text-emerald-400" /> {request.position}
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-gray-400 bg-white/5 rounded-lg px-3 py-2">
+                        <Shield size={13} className="text-purple-400" /> {request.experience} yrs
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-gray-500 mt-3 leading-relaxed">{request.skills}</p>
+                  </div>
+
+                  <div className="flex lg:flex-col gap-2 lg:min-w-[140px]">
+                    <button
+                      onClick={() => approveMutation.mutate(request._id)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
+                      className="flex-1 lg:flex-none inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border text-emerald-400 border-emerald-400/25 hover:bg-emerald-400/10 transition-all disabled:opacity-50"
+                    >
+                      <UserCheck size={13} />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => rejectMutation.mutate(request._id)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
+                      className="flex-1 lg:flex-none inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border text-rose-400 border-rose-400/25 hover:bg-rose-400/10 transition-all disabled:opacity-50"
+                    >
+                      <XCircle size={13} />
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* Staff table */}
       <Card>

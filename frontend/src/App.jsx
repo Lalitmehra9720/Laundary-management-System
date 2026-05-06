@@ -3,7 +3,6 @@ import { useAuth } from "./hooks/useAuth";
 
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import AdminSetupPage from "./pages/AdminSetupPage";
 import CustomerLoginPage from "./pages/CustomerLoginPage";
 import StaffApplicationPage from "./pages/StaffApplicationPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -70,14 +69,6 @@ const App = () => (
       element={
         <GuestRoute>
           <LoginPage />
-        </GuestRoute>
-      }
-    />
-    <Route
-      path="/admin-setup"
-      element={
-        <GuestRoute>
-          <AdminSetupPage />
         </GuestRoute>
       }
     />

@@ -35,7 +35,6 @@ api.interceptors.response.use(
 );
 
 export const authAPI = {
-  registerAdmin: (data) => api.post('/auth/register-admin', data),
   registerStaff: (data) => api.post('/auth/register-staff', data),
   login: (data) => api.post('/auth/login', data),
   sendOtp: (data) => api.post('/auth/customer/send-otp', data),

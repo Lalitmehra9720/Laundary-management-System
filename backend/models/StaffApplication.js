@@ -9,10 +9,10 @@ const staffApplicationSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, 'CleanPress email is required'],
+      required: [true, 'Gmail address is required'],
       lowercase: true,
       trim: true,
-      match: [/^[^\s@]+@cleanpress\.com$/i, 'Email must be like example@cleanpress.com'],
+      match: [/^[^\s@]+@gmail\.com$/i, 'Email must be a valid Gmail address'],
     },
     phone: {
       type: String,

@@ -353,57 +353,29 @@ const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
 const cleanPressEmailRegex = /^[^\s@]+@cleanpress\.com$/i;
+const gmailEmailRegex = /^[^\s@]+@gmail\.com$/i;
 const normalizeEmail = (email) => email.toLowerCase().trim();
 
 const generateStaffPassword = () => {
-  const suffix = crypto.randomBytes(5).toString('hex');
-  return `CP-${suffix}`;
+  return crypto.randomInt(100000, 1000000).toString();
+};
+
+const generateStaffEmail = async () => {
+  const staffCount = await User.countDocuments({ role: 'staff' });
+  let nextNumber = staffCount + 1;
+  let staffEmail = `staff${nextNumber}@gmail.com`;
+
+  while (await User.exists({ email: staffEmail })) {
+    nextNumber += 1;
+    staffEmail = `staff${nextNumber}@gmail.com`;
+  }
+
+  return staffEmail;
 };
 
 // ═══════════════════════════════════════════════════════
 //  1. ADMIN SETUP  →  POST /api/auth/register-admin
 // ═══════════════════════════════════════════════════════
-router.post('/register-admin', async (req, res, next) => {
-  try {
-    const { name, email, password, adminSecret } = req.body;
-
-    if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
-      return res.status(403).json({ success: false, message: 'Invalid admin secret key.' });
-    }
-
-    const adminExists = await User.findOne({ role: 'admin' });
-    if (adminExists) {
-      return res.status(400).json({
-        success: false,
-        message: 'Admin already exists. Only 1 admin is allowed.',
-      });
-    }
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Name, email and password are required' });
-    }
-
-    const emailTaken = await User.findOne({ email });
-    if (emailTaken) {
-      return res.status(400).json({ success: false, message: 'Email already registered' });
-    }
-
-    const admin = await User.create({ name, email, password, role: 'admin' });
-    const token = generateToken(admin._id);
-
-    res.status(201).json({
-      success: true,
-      message: 'Admin account created successfully!',
-      data: {
-        token,
-        user: { id: admin._id, name: admin.name, email: admin.email, role: admin.role },
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
 // ═══════════════════════════════════════════════════════
 //  2. STAFF CREATION  →  POST /api/auth/register-staff
 // ═══════════════════════════════════════════════════════
@@ -451,29 +423,27 @@ router.post('/staff-applications', async (req, res, next) => {
     if (!name || !email || !phone || !position || experience === undefined || !skills) {
       return res.status(400).json({
         success: false,
-        message: 'Name, CleanPress email, phone, position, experience and skills are required',
+        message: 'Name, Gmail address, phone, position, experience and skills are required',
       });
     }
 
     const applicationEmail = normalizeEmail(email);
-    if (!cleanPressEmailRegex.test(applicationEmail)) {
-      return res.status(400).json({ success: false, message: 'Email must be like example@cleanpress.com' });
+    if (!gmailEmailRegex.test(applicationEmail)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid Gmail address' });
     }
     if (!/^[6-9]\d{9}$/.test(phone)) {
       return res.status(400).json({ success: false, message: 'Enter a valid 10-digit Indian mobile number' });
     }
 
-    const existingUser = await User.findOne({ email: applicationEmail });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: 'A staff account already exists for this email' });
-    }
-
-    const pendingApplication = await StaffApplication.findOne({
+    const existingApplication = await StaffApplication.findOne({
       email: applicationEmail,
-      status: 'pending',
+      status: { $in: ['pending', 'approved'] },
     });
-    if (pendingApplication) {
-      return res.status(400).json({ success: false, message: 'A pending request already exists for this email' });
+    if (existingApplication) {
+      const message = existingApplication.status === 'pending'
+        ? 'A pending request already exists for this Gmail address'
+        : 'This Gmail address has already been approved for staff access';
+      return res.status(400).json({ success: false, message });
     }
 
     const application = await StaffApplication.create({
@@ -518,22 +488,24 @@ router.patch('/staff-applications/:id/approve', protect, adminOnly, async (req, 
       return res.status(400).json({ success: false, message: 'This request has already been reviewed' });
     }
 
-    const existingUser = await User.findOne({ email: application.email });
+    const staffEmail = await generateStaffEmail();
+    const existingUser = await User.findOne({ email: staffEmail });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'A staff account already exists for this email' });
+      return res.status(400).json({ success: false, message: 'Could not generate a unique staff login email' });
     }
 
     const password = generateStaffPassword();
     const staff = await User.create({
       name: application.name,
-      email: application.email,
+      email: staffEmail,
       password,
       role: 'staff',
     });
 
     try {
       await sendStaffCredentialsEmail({
-        email: staff.email,
+        email: application.email,
+        loginEmail: staff.email,
         name: staff.name,
         password,
       });
@@ -550,7 +522,7 @@ router.patch('/staff-applications/:id/approve', protect, adminOnly, async (req, 
 
     res.json({
       success: true,
-      message: `Approved ${staff.name}. Login credentials were sent to ${staff.email}.`,
+      message: `Approved ${staff.name}. Login credentials were sent to ${application.email}.`,
       data: {
         application,
         user: {

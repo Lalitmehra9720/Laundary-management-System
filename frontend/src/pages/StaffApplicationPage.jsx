@@ -24,8 +24,8 @@ const StaffApplicationPage = () => {
   const validate = () => {
     const nextErrors = {};
     if (!form.name.trim()) nextErrors.name = 'Full name is required';
-    if (!/^[^\s@]+@cleanpress\.com$/i.test(form.email.trim())) {
-      nextErrors.email = 'Use a CleanPress email like example@cleanpress.com';
+    if (!/^[^\s@]+@gmail\.com$/i.test(form.email.trim())) {
+      nextErrors.email = 'Use your Gmail address like example@gmail.com';
     }
     if (!/^[6-9]\d{9}$/.test(form.phone.trim())) {
       nextErrors.phone = 'Enter a valid 10-digit Indian mobile number';
@@ -97,9 +97,9 @@ const StaffApplicationPage = () => {
               </h2>
               <div className="space-y-3">
                 {[
-                  'Submit details with a CleanPress email address.',
+                  'Submit details with your Gmail address.',
                   'Admin reviews eligibility from the staff panel.',
-                  'Approved joiners receive email + generated password automatically.',
+                  'Approved joiners receive generated login email + password automatically.',
                 ].map((item, index) => (
                   <div key={item} className="flex gap-3 text-sm text-gray-400">
                     <span className="font-mono text-gold-400 text-xs mt-0.5">{String(index + 1).padStart(2, '0')}</span>
@@ -128,7 +128,7 @@ const StaffApplicationPage = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <h2 className="font-display font-semibold text-xl">Joiner Details</h2>
-                  <p className="text-gray-600 text-sm mt-1">Use email format example@cleanpress.com.</p>
+                  <p className="text-gray-600 text-sm mt-1">Use your Gmail address for approval updates.</p>
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -141,9 +141,9 @@ const StaffApplicationPage = () => {
                     error={errors.name}
                   />
                   <Input
-                    label="CleanPress Email"
+                    label="Gmail Address"
                     type="email"
-                    placeholder="ravi@cleanpress.com"
+                    placeholder="ravi@gmail.com"
                     icon={Mail}
                     value={form.email}
                     onChange={(e) => updateField('email', e.target.value)}

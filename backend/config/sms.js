@@ -200,14 +200,16 @@ const sendOtpSms = async (email, otp) => {
   }
 };
 
-const sendStaffCredentialsEmail = async ({ email, name, password }) => {
+const sendStaffCredentialsEmail = async ({ email, loginEmail, name, password }) => {
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  const staffLoginEmail = loginEmail || email;
 
   if (!gmailUser || !gmailPass) {
     console.log('\nCleanPress staff credentials email');
     console.log(`To: ${email}`);
     console.log(`Name: ${name}`);
+    console.log(`Login Email: ${staffLoginEmail}`);
     console.log(`Password: ${password}`);
     console.log('Add GMAIL_USER + GMAIL_APP_PASSWORD in .env to send real email.\n');
     return { success: true, dev: true };
@@ -231,7 +233,7 @@ const sendStaffCredentialsEmail = async ({ email, name, password }) => {
           <p style="margin: 0 0 14px;">Hello ${name},</p>
           <p style="margin: 0 0 20px; color: #bbb;">Your staff account has been approved. Use these credentials to log in:</p>
           <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
-            <p style="margin: 0 0 10px;"><strong>Email:</strong> ${email}</p>
+            <p style="margin: 0 0 10px;"><strong>Login Email:</strong> ${staffLoginEmail}</p>
             <p style="margin: 0;"><strong>Password:</strong> <span style="font-family: monospace;">${password}</span></p>
           </div>
           <p style="margin: 0 0 8px; color: #bbb;">Login URL: <a href="${loginUrl}" style="color: #f0c040;">${loginUrl}</a></p>

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useCallback } from 'react';
 import { authAPI } from '../utils/api';
 
@@ -20,15 +19,6 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
-  // ── Admin first-time setup ─────────────────────────
-  const registerAdmin = useCallback(async (name, email, password, adminSecret) => {
-    const res = await authAPI.registerAdmin({ name, email, password, adminSecret });
-    const { token, user: userData } = res.data.data;
-    _saveSession(token, userData);
-    return userData;
-  }, []);
-
-  // ── Staff/Admin email login ────────────────────────
   const login = useCallback(async (email, password) => {
     const res = await authAPI.login({ email, password });
     const { token, user: userData } = res.data.data;
@@ -36,13 +26,11 @@ export const AuthProvider = ({ children }) => {
     return userData;
   }, []);
 
-  // ── Customer OTP: send ─────────────────────────────
   const sendOtp = useCallback(async (phone, name, email) => {
     const res = await authAPI.sendOtp({ phone, name, email });
     return res.data;
   }, []);
 
-  // ── Customer OTP: verify ───────────────────────────
   const verifyOtp = useCallback(async (phone, otp) => {
     const res = await authAPI.verifyOtp({ phone, otp });
     const { token, user: userData } = res.data.data;
@@ -50,7 +38,6 @@ export const AuthProvider = ({ children }) => {
     return userData;
   }, []);
 
-  // ── Logout ─────────────────────────────────────────
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -67,7 +54,6 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         login,
-        registerAdmin,
         sendOtp,
         verifyOtp,
         logout,
