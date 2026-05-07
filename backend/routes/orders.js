@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const Order = require('../models/Order');
 const { protect, adminOnly, staffOrAdmin } = require('../middleware/auth');
 
@@ -22,7 +23,7 @@ router.get('/dashboard', adminOnly, async (req, res, next) => {
         Order.find()
           .sort({ createdAt: -1 })
           .limit(5)
-          .select('orderId customerName totalAmount status createdAt estimatedDelivery actualDelivery'),
+          .select('orderId customerName totalAmount status paymentStatus paymentMethod createdAt estimatedDelivery actualDelivery'),
         Order.aggregate([
           { $unwind: '$garments' },
           { $group: { _id: '$garments.type', totalQuantity: { $sum: '$garments.quantity' }, totalRevenue: { $sum: '$garments.subtotal' } } },
@@ -51,7 +52,7 @@ router.get('/staff-dashboard', staffOrAdmin, async (req, res, next) => {
       Order.find()
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('orderId customerName status createdAt estimatedDelivery actualDelivery'),
+        .select('orderId customerName totalAmount status paymentStatus paymentMethod createdAt estimatedDelivery actualDelivery'),
     ]);
 
     const statusMap = { RECEIVED: 0, PROCESSING: 0, READY: 0, DELIVERED: 0 };
@@ -71,6 +72,148 @@ router.get('/my-orders', async (req, res, next) => {
     }
     const orders = await Order.find({ phoneNumber: req.user.phone }).sort({ createdAt: -1 });
     res.json({ success: true, data: { orders } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const getRazorpayConfig = () => {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    const error = new Error('Razorpay payment gateway is not configured');
+    error.statusCode = 503;
+    throw error;
+  }
+
+  return { keyId, keySecret };
+};
+
+const ensureCustomerOwnsOrder = (req, order) => {
+  if (req.user.role !== 'customer') {
+    const error = new Error('Customer only');
+    error.statusCode = 403;
+    throw error;
+  }
+  if (order.phoneNumber !== req.user.phone) {
+    const error = new Error('Access denied');
+    error.statusCode = 403;
+    throw error;
+  }
+};
+
+// POST /api/orders/:id/payment/create - customer starts Razorpay payment
+router.post('/:id/payment/create', async (req, res, next) => {
+  try {
+    const order = await Order.findOne({
+      $or: [{ _id: req.params.id }, { orderId: req.params.id }],
+    });
+
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+    ensureCustomerOwnsOrder(req, order);
+
+    if (order.paymentStatus === 'PAID') {
+      return res.status(400).json({ success: false, message: 'This order is already paid' });
+    }
+
+    const { keyId, keySecret } = getRazorpayConfig();
+    const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+
+    const gatewayResponse = await fetch('https://api.razorpay.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: Math.round(order.totalAmount * 100),
+        currency: 'INR',
+        receipt: order.orderId,
+        notes: {
+          cleanpressOrderId: order.orderId,
+          customerPhone: order.phoneNumber,
+        },
+      }),
+    });
+
+    const gatewayOrder = await gatewayResponse.json();
+    if (!gatewayResponse.ok) {
+      return res.status(502).json({
+        success: false,
+        message: gatewayOrder.error?.description || 'Could not start payment',
+      });
+    }
+
+    order.paymentMethod = 'RAZORPAY';
+    order.paymentGatewayOrderId = gatewayOrder.id;
+    await order.save();
+
+    res.json({
+      success: true,
+      data: {
+        keyId,
+        gatewayOrderId: gatewayOrder.id,
+        amount: gatewayOrder.amount,
+        currency: gatewayOrder.currency,
+        order: {
+          id: order._id,
+          orderId: order.orderId,
+          customerName: order.customerName,
+          totalAmount: order.totalAmount,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/orders/:id/payment/verify - verify Razorpay signature and mark paid
+router.post('/:id/payment/verify', async (req, res, next) => {
+  try {
+    const {
+      razorpay_order_id: razorpayOrderId,
+      razorpay_payment_id: razorpayPaymentId,
+      razorpay_signature: razorpaySignature,
+    } = req.body;
+
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({ success: false, message: 'Payment verification details are required' });
+    }
+
+    const order = await Order.findOne({
+      $or: [{ _id: req.params.id }, { orderId: req.params.id }],
+    });
+
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+    ensureCustomerOwnsOrder(req, order);
+
+    if (order.paymentGatewayOrderId !== razorpayOrderId) {
+      return res.status(400).json({ success: false, message: 'Payment order mismatch' });
+    }
+
+    const { keySecret } = getRazorpayConfig();
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest('hex');
+
+    if (expectedSignature !== razorpaySignature) {
+      return res.status(400).json({ success: false, message: 'Payment verification failed' });
+    }
+
+    order.paymentStatus = 'PAID';
+    order.paymentMethod = 'RAZORPAY';
+    order.paymentGatewayPaymentId = razorpayPaymentId;
+    order.paidAt = new Date();
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Payment successful',
+      data: { order },
+    });
   } catch (error) {
     next(error);
   }

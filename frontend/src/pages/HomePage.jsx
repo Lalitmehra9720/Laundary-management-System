@@ -1,4 +1,5 @@
 import { useAuth } from "../hooks/useAuth";
+import { Navigate } from "react-router-dom";
 import Footer from "../components/common/Footer";
 
 import LoggedInBanner  from "../components/home/LoggedInBanner";
@@ -10,7 +11,11 @@ import PricingSection  from "../components/home/PricingSection";
 import CtaSection      from "../components/home/CtaSection";
 
 const HomePage = () => {
-  const { isAuthenticated, user, logout, isAdmin, isStaff, isCustomer } = useAuth();
+  const { isAuthenticated, user, logout, isCustomer } = useAuth();
+
+  if (isAuthenticated && isCustomer) {
+    return <Navigate to="/my-orders" replace />;
+  }
 
   return (
     <div className="overflow-x-hidden">

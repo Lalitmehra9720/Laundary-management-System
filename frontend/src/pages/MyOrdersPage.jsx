@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, isPast } from 'date-fns';
 import {
   Phone,
@@ -7,6 +7,7 @@ import {
   Shirt,
   Package,
   CheckCircle,
+  CreditCard,
   LogOut,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +17,19 @@ import { useAuth } from '../hooks/useAuth';
 import StatusBadge from '../components/common/StatusBadge';
 import { PageLoader } from '../components/common/Spinner';
 import EmptyState from '../components/common/EmptyState';
+
+const loadRazorpayScript = () => new Promise((resolve) => {
+  if (window.Razorpay) {
+    resolve(true);
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+  script.onload = () => resolve(true);
+  script.onerror = () => resolve(false);
+  document.body.appendChild(script);
+});
 
 // Progress bar showing which stage the order is at
 const OrderProgress = ({ status }) => {
@@ -56,10 +70,11 @@ const OrderProgress = ({ status }) => {
 };
 
 // Single order card — customer view
-const CustomerOrderCard = ({ order }) => {
+const CustomerOrderCard = ({ order, onPay, paying }) => {
   const totalGarments = order.garments.reduce((s, g) => s + g.quantity, 0);
   const isReady = order.status === 'READY';
   const isDelivered = order.status === 'DELIVERED';
+  const isPaid = order.paymentStatus === 'PAID';
   const deliveryPast = order.estimatedDelivery && isPast(new Date(order.estimatedDelivery));
 
   return (
@@ -83,7 +98,16 @@ const CustomerOrderCard = ({ order }) => {
         <span className="font-mono text-xs text-gold-400 bg-gold-400/10 px-2.5 py-1 rounded-lg border border-gold-400/20">
           {order.orderId}
         </span>
-        <StatusBadge status={order.status} />
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-mono px-2 py-1 rounded-full border ${
+            isPaid
+              ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/25'
+              : 'text-amber-400 bg-amber-400/10 border-amber-400/25'
+          }`}>
+            {isPaid ? 'PAID' : 'PAYMENT DUE'}
+          </span>
+          <StatusBadge status={order.status} />
+        </div>
       </div>
 
       {/* Garments list */}
@@ -126,6 +150,18 @@ const CustomerOrderCard = ({ order }) => {
         </p>
       </div>
 
+      {!isPaid && (
+        <button
+          type="button"
+          onClick={() => onPay(order)}
+          disabled={paying}
+          className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all"
+        >
+          <CreditCard size={15} />
+          {paying ? 'Opening Payment...' : 'Pay Online'}
+        </button>
+      )}
+
       {/* Progress bar */}
       {!isDelivered && <OrderProgress status={order.status} />}
 
@@ -142,6 +178,7 @@ const CustomerOrderCard = ({ order }) => {
 const MyOrdersPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['my-orders'],
@@ -154,6 +191,54 @@ const MyOrdersPage = () => {
     toast.success('Logged out');
     navigate('/customer-login');
   };
+
+  const paymentMutation = useMutation({
+    mutationFn: async (order) => {
+      const loaded = await loadRazorpayScript();
+      if (!loaded) throw new Error('Could not load payment gateway. Please try again.');
+
+      const res = await ordersAPI.createPayment(order._id);
+      const paymentData = res.data.data;
+
+      return new Promise((resolve, reject) => {
+        const checkout = new window.Razorpay({
+          key: paymentData.keyId,
+          amount: paymentData.amount,
+          currency: paymentData.currency,
+          name: 'CleanPress Laundry',
+          description: `Payment for ${order.orderId}`,
+          order_id: paymentData.gatewayOrderId,
+          prefill: {
+            name: user?.name || order.customerName,
+            contact: user?.phone || order.phoneNumber,
+            email: user?.email || '',
+          },
+          theme: { color: '#10b981' },
+          handler: async (response) => {
+            try {
+              await ordersAPI.verifyPayment(order._id, response);
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          },
+          modal: {
+            ondismiss: () => reject(new Error('Payment cancelled')),
+          },
+        });
+
+        checkout.open();
+      });
+    },
+    onSuccess: () => {
+      toast.success('Payment successful');
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+    },
+    onError: (err) => {
+      const message = err.response?.data?.message || err.message || 'Payment failed';
+      if (message !== 'Payment cancelled') toast.error(message);
+    },
+  });
 
   const orders = data || [];
   const pendingOrders = orders.filter((o) => o.status !== 'DELIVERED');
@@ -259,7 +344,12 @@ const MyOrdersPage = () => {
                   Active Orders
                 </p>
                 {pendingOrders.map((o) => (
-                  <CustomerOrderCard key={o._id} order={o} />
+                  <CustomerOrderCard
+                    key={o._id}
+                    order={o}
+                    onPay={(order) => paymentMutation.mutate(order)}
+                    paying={paymentMutation.isPending && paymentMutation.variables?._id === o._id}
+                  />
                 ))}
               </>
             )}
@@ -274,7 +364,11 @@ const MyOrdersPage = () => {
                   .filter((o) => o.status === 'DELIVERED')
                   .map((o) => (
                     <div key={o._id} className="opacity-60">
-                      <CustomerOrderCard order={o} />
+                      <CustomerOrderCard
+                        order={o}
+                        onPay={(order) => paymentMutation.mutate(order)}
+                        paying={paymentMutation.isPending && paymentMutation.variables?._id === o._id}
+                      />
                     </div>
                   ))}
               </>

@@ -60,6 +60,8 @@ export const ordersAPI = {
   getStaffDashboard: () => api.get('/orders/staff-dashboard'),
   getMyOrders: () => api.get('/orders/my-orders'),
   getGarmentPrices: () => api.get('/orders/garment-prices'),
+  createPayment: (id) => api.post(`/orders/${id}/payment/create`),
+  verifyPayment: (id, data) => api.post(`/orders/${id}/payment/verify`, data),
 };
 
 export default api;

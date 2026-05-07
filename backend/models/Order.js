@@ -56,6 +56,10 @@ const orderSchema = new mongoose.Schema(
 
     specialInstructions: { type: String, trim: true },
     paymentStatus: { type: String, enum: ['PENDING', 'PAID'], default: 'PENDING' },
+    paymentMethod: { type: String, enum: ['CASH', 'RAZORPAY'], default: 'CASH' },
+    paymentGatewayOrderId: String,
+    paymentGatewayPaymentId: String,
+    paidAt: Date,
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

@@ -9,6 +9,7 @@ import { ordersAPI } from '../utils/api';
 import Layout from '../components/common/Layout';
 import Card, { CardHeader } from '../components/common/Card';
 import StatusBadge from '../components/common/StatusBadge';
+import PaymentBadge from '../components/common/PaymentBadge';
 import Button from '../components/common/Button';
 import UpdateStatusModal from '../components/orders/UpdateStatusModal';
 import { PageLoader } from '../components/common/Spinner';
@@ -126,6 +127,8 @@ const OrderDetailPage = () => {
             <p className="font-bold border-b border-black inline-block mb-1">INVOICE NO</p>
             <p className="text-lg font-mono font-bold">#{order.orderId}</p>
             <p>Status: {order.status}</p>
+            <p>Payment: {order.paymentStatus === 'PAID' ? 'PAID' : 'DUE'}</p>
+            <p>Method: {order.paymentStatus === 'PAID' ? order.paymentMethod : 'Not paid'}</p>
           </div>
         </div>
 
@@ -379,4 +382,3 @@ const OrderDetailPage = () => {
 };
 
 export default OrderDetailPage;
-

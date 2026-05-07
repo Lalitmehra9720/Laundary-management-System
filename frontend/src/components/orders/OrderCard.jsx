@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { Phone, Calendar, Shirt, ChevronRight, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../common/StatusBadge';
+import PaymentBadge from '../common/PaymentBadge';
 
 const OrderCard = ({ order }) => {
   const totalGarments = order.garments.reduce((s, g) => s + g.quantity, 0);
@@ -19,6 +20,7 @@ const OrderCard = ({ order }) => {
               {order.orderId}
             </span>
             <StatusBadge status={order.status} size="sm" />
+            <PaymentBadge status={order.paymentStatus} method={order.paymentMethod} />
           </div>
 
           <h3 className="font-display text-base font-semibold text-cream-100 truncate mb-3">
@@ -52,6 +54,7 @@ const OrderCard = ({ order }) => {
           <p className="font-display font-bold text-xl text-cream-100">
             ₹{order.totalAmount.toLocaleString('en-IN')}
           </p>
+          <PaymentBadge status={order.paymentStatus} method={order.paymentMethod} />
           <ChevronRight
             size={16}
             className="text-gray-600 group-hover:text-gold-400 group-hover:translate-x-1 transition-all"
