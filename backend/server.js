@@ -114,6 +114,15 @@ app.use(express.json());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // Health check
+app.get('/',(req,res)=>{
+  res.json({
+    success: true,
+    message: 'CleanPress API running 🚀',
+    timestamp: new Date(),
+    env: process.env.NODE_ENV,
+    allowedOrigins,
+  })
+})
 app.get('/health', (req, res) => {
   res.json({
     success: true,
