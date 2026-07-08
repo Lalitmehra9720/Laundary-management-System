@@ -4,6 +4,13 @@ A full-stack, AI-assisted laundry order management system for dry cleaning store
 
 ---
 
+# For trying this app
+
+admin gmail : admin@cleanpress.com
+admin password : password123
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -61,7 +68,7 @@ laundry-system/
 
 ### 1. Clone the repo
 ```bash
-git clone https://github.com/YOUR_USERNAME/laundry-system.git
+git clone https://github.com/Lalitmehra9720/Laundary-management-System
 cd laundry-system
 ```
 
